@@ -54,7 +54,8 @@ async def collect_metrics():
                 if insight_url is not None:
                     try:
                         loop = asyncio.get_event_loop()
-                        insight_status = await loop.run_in_executor(None, requests.get, insight_url)
+                        insight_status = await loop.run_in_executor(None, requests.get,
+                        '{}/insight-api/status'.format(insight_url))
                         insight_status_json = insight_status.json()
 
                         ELECTRUMX_EXTERNAL_HEIGHT.set(insight_status_json['info']['blocks'])
