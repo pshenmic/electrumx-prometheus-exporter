@@ -1,0 +1,5 @@
+flask
+asyncio
+requests
+aiorpcx
+prometheus_client
