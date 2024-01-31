@@ -86,7 +86,7 @@ async def collect_metrics():
         return 0
     except OSError:
         print('cannot connect - is ElectrumX catching up, not running, or '
-              f'is {port} the wrong RPC port?')
+              f'is {rpc_port} the wrong RPC port?')
         return 1
     except Exception as e:
         print(f'error making request: {e}')
