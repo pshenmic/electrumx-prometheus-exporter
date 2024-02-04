@@ -4,6 +4,7 @@ import requests
 import json
 import os
 from aiorpcx import timeout_after, connect_rs
+from datetime import timedelta
 
 from prometheus_client import start_http_server, Counter, generate_latest, Gauge, REGISTRY, PROCESS_COLLECTOR, PLATFORM_COLLECTOR, GC_COLLECTOR
 timeout = 30
@@ -14,11 +15,13 @@ rpc_host = os.getenv('RPC_HOST') or '127.0.0.1'
 rpc_port = os.getenv('RPC_PORT') or 8000
 insight_url = os.getenv('INSIGHT_URL') or None
 app = Flask(__name__)
+requests_dict = {}
 
 REGISTRY.unregister(PROCESS_COLLECTOR)
 REGISTRY.unregister(PLATFORM_COLLECTOR)
 REGISTRY.unregister(GC_COLLECTOR)
 
+ELECTRUMX_UPTIME_SECONDS = Gauge('electrumx_uptime_seconds', 'ElectrumX Uptime')
 ELECTRUMX_DAEMON_HEIGHT = Gauge('electrumx_daemon_height', 'Daemon height')
 ELECTRUMX_EXTERNAL_HEIGHT = Gauge('electrumx_external_height', 'External height')
 ELECTRUMX_DB_HEIGHT = Gauge('electrumx_db_height', 'DB height')
@@ -62,6 +65,10 @@ async def collect_metrics():
                     except:
                         pass
 
+                hours, minutes, seconds = map(lambda str: int(str[:-1]) , result['uptime'].split(' '))
+                uptime_duration = timedelta(hours=hours, minutes=minutes, seconds=seconds)
+
+                ELECTRUMX_UPTIME_SECONDS.set(uptime_duration.total_seconds())
                 ELECTRUMX_DAEMON_HEIGHT.set(result['daemon height'])
                 ELECTRUMX_DB_HEIGHT.set(result['db height'])
                 ELECTRUMX_DB_FLUSH_COUNT.set(result['db_flush_count'])
@@ -73,6 +80,16 @@ async def collect_metrics():
                 ELECTRUMX_PEERS_TOTAL.set(result['peers']['total'])
 
                 ELECTRUMX_REQUESTS_TOTAL.set(result['request total'])
+
+                for key in result['request counts']:
+                    request_key = key.replace('.', '_')
+                    request_count = result['request counts'][key]
+
+                    if not request_key in requests_dict:
+                        requests_dict[request_key] = Gauge('electrumx_request_{}'.format(request_key),
+                            'ElectrumX request {} count'.format(key))
+
+                    requests_dict[request_key].set(request_count)
 
                 ELECTRUMX_SESSIONS_COUNT.set(result['sessions']['count'])
                 ELECTRUMX_SESSIONS_COUNT_WITH_SUBS.set(result['sessions']['count with subs'])
@@ -102,7 +119,6 @@ def get_data():
     asyncio.set_event_loop(loop)
     metrics = loop.run_until_complete(collect_metrics())
 
-    print(metrics)
     return Response(metrics, mimetype=CONTENT_TYPE_LATEST)
 
 if __name__ == '__main__':
