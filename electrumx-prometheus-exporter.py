@@ -82,7 +82,7 @@ async def collect_metrics():
                 ELECTRUMX_REQUESTS_TOTAL.set(result['request total'])
 
                 for key in result['request counts']:
-                    request_key = key.replace('.', '_')
+                    request_key = key.replace('.', '_').replace(' ', '_')
                     request_count = result['request counts'][key]
 
                     if not request_key in requests_dict:
